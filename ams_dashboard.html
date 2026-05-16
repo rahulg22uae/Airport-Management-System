@@ -2,395 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Airport Management System (AMS)</title>
-    
-    <!-- Socket.io Client Library for Live Backend Sync -->
-    <script src="/socket.io/socket.io.js"></script>
-    
-    <!-- Google Fonts: Inter for general UI text, Roboto Mono for jitter-free data counters -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
-    
+    <title>Airport Operations Control Dashboard</title>
     <style>
-        /* --- DESIGN SYSTEM TOKENS (AVIATION SPEC) --- */
-        :root {
-            --bg-main: #121824;
-            --bg-card: #1e2640;
-            --border-color: #2e3a5f;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            
-            /* Universal Status Accents */
-            --status-green: #10b981;
-            --status-amber: #f59e0b;
-            --status-red: #ef4444;
-            --status-info: #3b82f6;
-        }
-
-        /* --- GLOBAL LAYOUT RESETS --- */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            padding: 24px;
-            min-height: 100vh;
-        }
-
-        .mono {
-            font-family: 'Roboto Mono', monospace;
-        }
-
-        /* --- HEADER & TERMINAL SELECTION UTILITIES --- */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-        }
-
-        .logo-section h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.025em;
-        }
-
-        .logo-section span {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .terminal-switcher {
-            display: flex;
-            background-color: #0f1420;
-            padding: 4px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-        }
-
-        .terminal-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            padding: 6px 16px;
-            font-weight: 500;
-            font-size: 0.875rem;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .terminal-btn.active {
-            background-color: var(--bg-card);
-            color: var(--text-main);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .system-time {
-            text-align: right;
-            font-size: 0.875rem;
-        }
-
-        .time-block {
-            display: inline-block;
-            margin-left: 16px;
-        }
-
-        .time-label {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            display: block;
-        }
-
-        /* --- DASHBOARD COMPONENT GRID SYSTEM --- */
-        .section-title {
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-
-        /* --- CONTROL SURFACE KPI CARDS --- */
-        .card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 16px;
-            position: relative;
-            transition: transform 0.15s ease, border-color 0.15s ease;
-            cursor: pointer;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-            border-color: #3e4d7a;
-        }
-
-        .card-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .card-value {
-            font-size: 2.25rem;
-            font-weight: 700;
-            line-height: 1;
-            margin-bottom: 8px;
-        }
-
-        .card-meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        /* --- META TREND STATE COLORS --- */
-        .status-up { color: var(--status-green); }
-        .status-down { color: var(--status-red); }
-        .status-warning { color: var(--status-amber); }
-
-        /* Tactical Breach State: Critical Highlight for Violations */
-        .card.critical-alert {
-            border-color: var(--status-red);
-            animation: pulse-border 2s infinite;
-        }
-
-        .card.critical-alert .card-value {
-            color: var(--status-red);
-        }
-
-        @keyframes pulse-border {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-
-        /* --- TELEMETRY STATUS FOOTER --- */
-        footer {
-            margin-top: 32px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 12px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .live-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .pulse-dot {
-            width: 6px;
-            height: 6px;
-            background-color: var(--status-green);
-            border-radius: 50%;
-            animation: blink 1.5s infinite;
-        }
-
-        @keyframes blink {
-            0% { opacity: 0.2; }
-            50% { opacity: 1; }
-            100% { opacity: 0.2; }
-        }
+        body { font-family: Arial, sans-serif; background: #1e293b; color: white; padding: 20px; }
+        h1 { text-align: center; color: #38bdf8; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 40px; }
+        .metric-box { background: #0f172a; padding: 30px; border-radius: 12px; text-align: center; border: 2px solid #334155; }
+        .metric-box h3 { margin: 0; color: #94a3b8; font-size: 14px; text-transform: uppercase; }
+        .number { font-size: 48px; font-weight: bold; color: #f43f5e; margin: 10px 0; transition: all 0.3s ease; }
     </style>
 </head>
 <body>
-
-    <!-- TOP NAVIGATION & GLOBAL SYSTEM UTILITIES -->
-    <header>
-        <div class="logo-section">
-            <h1>AIRPORT MANAGEMENT SYSTEM</h1>
-            <span>Tactical Operations Dashboard</span>
+    <h1>🛫 Airport Operations Control Dashboard (LIVE)</h1>
+    <div class="grid">
+        <div class="metric-box">
+            <h3>Baggage Wait Time</h3>
+            <div class="number" id="baggageWait">--</div>
+            <p>Minutes</p>
         </div>
-        
-        <div class="terminal-switcher">
-            <button class="terminal-btn">T1</button>
-            <button class="terminal-btn">T2</button>
-            <button class="terminal-btn">T3</button>
-            <button class="terminal-btn active">ALL TERMINALS</button>
+        <div class="metric-box">
+            <h3>Security Queue</h3>
+            <div class="number" id="securityQueue">--</div>
+            <p>Minutes</p>
         </div>
-
-        <div class="system-time mono">
-            <div class="time-block">
-                <span class="time-label">LOCAL (DST)</span>
-                <strong>14:32:01</strong>
-            </div>
-            <div class="time-block">
-                <span class="time-label">UTC</span>
-                <strong>10:32:01</strong>
-            </div>
+        <div class="metric-box">
+            <h3>Active Check-in</h3>
+            <div class="number" id="activeCheckin">--</div>
+            <p>Counters Open</p>
         </div>
-    </header>
-
-    <!-- SECTION 1: FLIGHT OPERATIONS SUMMARY (THE PULSE) -->
-    <div class="section-title">Flight Operations Summary</div>
-    <div class="grid-3">
-        <!-- On Time Performance (OTP) -->
-        <div class="card">
-            <div class="card-title">On-Time Performance (OTP)</div>
-            <div class="card-value mono status-up">84.2%</div>
-            <div class="card-meta">
-                <span class="status-up">▲ 1.5%</span> vs last departure bank
-            </div>
-        </div>
-
-        <!-- Total Flight Departures -->
-        <div class="card">
-            <div class="card-title">Total Flight Departures</div>
-            <div class="card-value mono">342<span style="font-size: 1.25rem; color: var(--text-muted);">/450</span></div>
-            <div class="card-meta">Active & Completed / Total Scheduled Today</div>
-        </div>
-
-        <!-- Total Flight Arrivals -->
-        <div class="card">
-            <div class="card-title">Total Flight Arrivals</div>
-            <div class="card-value mono">289<span style="font-size: 1.25rem; color: var(--text-muted);">/442</span></div>
-            <div class="card-meta"><span class="status-up" style="color: var(--status-info);">12 airborne</span> in immediate airspace</div>
+        <div class="metric-box">
+            <h3>Delayed Flights</h3>
+            <div class="number" id="delayedFlights">--</div>
+            <p>Aircraft</p>
         </div>
     </div>
 
-    <!-- SECTION 2: PASSENGER FLOW & QUEUE TIMES (SLA TARGETS) -->
-    <div class="section-title">Passenger Flow & Queue Times (SLA Benchmarks)</div>
-    <div class="grid-4">
-        <!-- Check-In Queue Time -->
-        <div class="card">
-            <div class="card-title">Check-in Queue Time</div>
-            <div class="card-value mono">14<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta">Avg wait • <span class="status-up">Target &lt;20m</span></div>
-        </div>
-
-        <!-- Security Queue Time -->
-        <div class="card critical-alert">
-            <div class="card-title">Security Queue Time</div>
-            <div class="card-value mono">24<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta"><span class="status-down">⚠️ Target Breached (&gt;15m)</span></div>
-        </div>
-
-        <!-- Departure Immigration Queue Time -->
-        <div class="card">
-            <div class="card-title">Dep. Immigration Queue</div>
-            <div class="card-value mono">08<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta">Avg wait • <span class="status-up">Target &lt;15m</span></div>
-        </div>
-
-        <!-- Arrival Immigration Queue Time -->
-        <div class="card">
-            <div class="card-title">Arr. Immigration Queue</div>
-            <div class="card-value mono">11<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta">Avg wait • <span class="status-up">Target &lt;20m</span></div>
-        </div>
-    </div>
-
-    <!-- SECTION 3: BAGGAGE HANDLING PERFORMANCE (GHA EFFICIENCY) -->
-    <div class="section-title">Baggage Handling Performance (GHA Efficiency)</div>
-    <div class="grid-2">
-        <!-- First Bag Delivery -->
-        <div class="card">
-            <div class="card-title">First Bag Delivery Time</div>
-            <div class="card-value mono">12.4<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta">Interval: Chocks-on to Carousel • <span class="status-up">Target &lt;15m</span></div>
-        </div>
-
-        <!-- Last Bag Delivery -->
-        <div class="card">
-            <div class="card-title">Last Bag Delivery Time</div>
-            <div class="card-value mono">32.1<span style="font-size: 1rem;"> min</span></div>
-            <div class="card-meta">Interval: Chocks-on to Last Bag • <span class="status-up">Target &lt;35m</span></div>
-        </div>
-    </div>
-
-    <!-- TECHNICAL FOOTER STATUS BAR -->
-    <footer>
-        <div class="live-indicator">
-            <div class="pulse-dot"></div>
-            <span>Live WebSockets Gateway Connected</span>
-        </div>
-        <div class="mono">Data refresh status: Awaiting stream...</div>
-    </footer>
-
-    <!-- --- CLIENT-SIDE WEBSOCKET PROCESSING ENGINE --- -->
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
     <script>
-        // Open low-latency communication tunnel back to node server
-        const socket = io();
+        const socket = io(window.location.origin); 
 
-        // Listen for live database emissions 
-        socket.on('airport_telemetry_update', (data) => {
-            
-            // 1. Refresh Flight Matrix Data
-            document.querySelector('.grid-3 .card:nth-child(1) .card-value').textContent = `${data.otp}%`;
-            document.querySelector('.grid-3 .card:nth-child(2) .card-value').innerHTML = `${data.departures}<span style="font-size: 1.25rem; color: var(--text-muted);">/450</span>`;
-            document.querySelector('.grid-3 .card:nth-child(3) .card-value').innerHTML = `${data.arrivals}<span style="font-size: 1.25rem; color: var(--text-muted);">/442</span>`;
+        socket.on('connect', () => {
+            console.log('Connected to live socket network server!');
+        });
 
-            // 2. Refresh Processing Flow Queue Markers
-            document.querySelector('.grid-4 .card:nth-child(1) .card-value').innerHTML = `${data.checkInQueue}<span style="font-size: 1rem;"> min</span>`;
-            
-            // Capture Security Alert Surface
-            const securityCard = document.querySelector('.grid-4 .card:nth-child(2)');
-            const securityValue = securityCard.querySelector('.card-value');
-            const securityMeta = securityCard.querySelector('.card-meta');
-            securityValue.innerHTML = `${data.securityQueue}<span style="font-size: 1rem;"> min</span>`;
-            
-            // Dynamic UI adjustment if target ceiling is pierced (>15 mins)
-            if (data.securityQueue > 15) {
-                securityCard.classList.add('critical-alert');
-                securityMeta.innerHTML = `<span class="status-down">⚠️ Target Breached (&gt;15m)</span>`;
-            } else {
-                securityCard.classList.remove('critical-alert');
-                securityMeta.innerHTML = `<span class="status-up">✓ Within SLA</span>`;
+        socket.on('metric-updated', (data) => {
+            console.log('Received real-time sync data:', data);
+            const element = document.getElementById(data.metric);
+            if(element) {
+                element.innerText = data.value;
+                element.style.color = '#34d399';
+                setTimeout(() => { element.style.color = '#f43f5e'; }, 1000);
             }
-
-            document.querySelector('.grid-4 .card:nth-child(3) .card-value').innerHTML = `${data.depImmigration}<span style="font-size: 1rem;"> min</span>`;
-            document.querySelector('.grid-4 .card:nth-child(4) .card-value').innerHTML = `${data.arrImmigration}<span style="font-size: 1rem;"> min</span>`;
-
-            // 3. Refresh Baggage Carousel Metrics
-            document.querySelector('.grid-2 .card:nth-child(1) .card-value').innerHTML = `${data.firstBag}<span style="font-size: 1rem;"> min</span>`;
-            document.querySelector('.grid-2 .card:nth-child(2) .card-value').innerHTML = `${data.lastBag}<span style="font-size: 1rem;"> min</span>`;
-
-            // Update Technical Sync Counter in Footer
-            document.querySelector('footer .mono').textContent = `Data stream status: Active • Packet synced via stream`;
         });
     </script>
 </body>
